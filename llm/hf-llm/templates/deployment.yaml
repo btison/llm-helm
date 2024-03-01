@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hf-llm.name" . }}
+  labels:
+    {{- include "hf-llm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hf-llm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "hf-llm.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "hf-llm.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.containerPort }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: models-cache
+              mountPath: {{ .Values.llm.modelCache }}
+            - name: shm
+              mountPath: /dev/shm
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: MODEL_ID
+              value: {{ .Values.llm.modelId }}
+            - name: MAX_INPUT_LENGTH
+              value: '{{ .Values.llm.maxInputLength }}'
+            - name: MAX_TOTAL_TOKENS
+              value: '{{ .Values.llm.maxTotalTokens }}'
+            - name: HUGGINGFACE_HUB_CACHE
+              value: {{ .Values.llm.modelCache }}
+            - name: PORT
+              value: '{{ .Values.service.containerPort }}'
+            - name: HOSTNAME
+              value: '0.0.0.0'
+      volumes:
+        - name: models-cache
+          persistentVolumeClaim:
+            claimName: {{ include "hf-llm.name" . }}-models-cache
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
