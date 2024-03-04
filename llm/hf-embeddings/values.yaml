@@ -1,0 +1,100 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/huggingface/text-embeddings-inference
+  pullPolicy: IfNotPresent
+  tag: cpu-1.1
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: 
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+    scheme: HTTP
+  timeoutSeconds: 8
+  periodSeconds: 100
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+    scheme: HTTP
+  timeoutSeconds: 5
+  periodSeconds: 30
+  successThreshold: 1
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+    scheme: HTTP
+  timeoutSeconds: 1
+  periodSeconds: 30
+  successThreshold: 1
+  failureThreshold: 24
+  initialDelaySeconds: 60
+
+resources:
+  limits:
+    cpu: '2'
+    memory: 12Gi
+    # nvidia.com/gpu: '1'
+  requests:
+    cpu: '1'
+
+service:
+  type: ClusterIP
+  port: 3000
+  containerPort: 3000
+  portName: http
+
+route:
+  enabled: true
+  host:
+  tlsEnabled: true
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+tolerations: []
+# tolerations:
+#   - key: nvidia.com/gpu
+#     operator: Exists
+#     effect: NoSchedule
+
+affinity: {}
+
+embeddings:
+  modelId: thenlper/gte-large
+  data: /data
+
+pvc:
+  argocd:
+    syncwave: "-1"
+  capacity: 30Gi
+  storageClassName: ocs-storagecluster-cephfs
+  volumeMode: Filesystem
